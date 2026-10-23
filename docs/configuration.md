@@ -48,6 +48,16 @@ startup, file opening, and quitting. Short child sessions have no swap recovery.
 Another reference from the same conversation reuses its child through a private
 Neovim socket. Buffer changes retain Neovim's unsaved-change protections.
 
+To use a separate configuration for host-only previews, set an absolute init
+path (or `NONE`) before loading the plugin:
+
+```tmux
+set -g @agent-nvim-config '/home/you/.config/tmux/host-preview.lua'
+```
+
+This affects built-in host Neovim children only. Container children retain their
+own normal configuration. Close an existing child before changing this option.
+
 ## Other text editors
 
 Set `@agent-editor` to an **absolute executable path**. It is one executable,
@@ -111,6 +121,44 @@ default working directory; after `cd` inside its interactive shell, use absolute
 references. `~/` resolves in the container. Both parse and editor commands
 target the detected container ID. No automatic host-to-container path
 translation is performed.
+
+For projects whose host checkout is mounted at a known container path, you can
+also opt into checkout routing:
+
+```tmux
+set -g @agent-container-root '/src'
+```
+
+Use the actual container workspace path; `/src` is an example. With this option
+and `TMUX_AGENT_CONTAINER_PACKAGE` set, project references in a host pane whose
+nearest Git root contains `.devcontainer/devcontainer.json` open in its existing
+running container. Exactly one container must carry that checkout's
+`devcontainer.local_folder` label; absent or ambiguous targets fail. Host
+checkout paths translate to the configured container root. Container-root paths
+shown in host output translate back to the checkout only to identify the
+project; the selected file is then resolved again inside the container. Paths
+outside that checkout still use the host editor. Foreground `devcontainer exec`
+detection takes precedence. Relative container references use the configured
+workspace root.
+
+For read-only foreground-context inspection, run the public controller with the
+originating tmux pane ID:
+
+```sh
+~/.tmux/plugins/tmux-agent-navigation/bin/agent-navigation context %1
+```
+
+It prints the selected foreground container and host workspace as JSON, or
+`null` outside a foreground container exec. It neither selects a checkout
+fallback nor opens an editor.
+
+For attachment checks without depending on private pane options or socket paths,
+`agent-navigation status %1` returns a JSON snapshot for the parent/editor pair.
+`parent` contains `pane`, `active`, `copy_mode`, `cursor` (a copy-position
+token), and `zoomed`. `editor` is `null` after exit, or contains `pane`,
+`runtime`, `container`, `active`, `zoomed`, and `ready`. A ready built-in Neovim
+editor also reports `buffer`, `line`, `column`, `cwd`, `pid`, and `filetype`.
+The package owns all RPC details; custom-editor state reports `ready: false`.
 
 The adapter never creates, builds, starts, or recreates containers and adds no
 mounts. A socket is created privately inside each namespace; it is not shared.

@@ -78,8 +78,12 @@ function M.thumb(ref)
     M.pick(pane, ref, 0, fmt(pane, "#{pane_current_path}"))
 end
 
-function M.parse(text, x)
-    local file, line, col = M.resolve(text, tonumber(x), vim.fn.getcwd())
+function M.parse(text, x, host_workspace, container_workspace)
+    local mapping = host_workspace
+            and container_workspace
+            and { from = host_workspace, to = container_workspace }
+        or nil
+    local file, line, col = M.resolve(text, tonumber(x), container_workspace or vim.fn.getcwd(), mapping)
     local directory = vim.fn.isdirectory(file) == 1 and file or vim.fs.dirname(file)
     io.write(vim.json.encode({
         file = file,
@@ -89,15 +93,48 @@ function M.parse(text, x)
     }))
 end
 
+local function container_root(pane)
+    local root = fmt(pane, "#{@agent-container-root}")
+    if root == "" then
+        return nil
+    end
+    root = vim.fs.normalize(root)
+    assert(
+        root:sub(1, 1) == "/" and root ~= "/",
+        "Set @agent-container-root to an absolute workspace directory"
+    )
+    assert(vim.env.TMUX_AGENT_CONTAINER_PACKAGE, "Set TMUX_AGENT_CONTAINER_PACKAGE for container routing")
+    return root
+end
+
+local function foreground(pane)
+    if not vim.env.TMUX_AGENT_CONTAINER_PACKAGE then
+        return nil
+    end
+    return dofile(base .. "lua/context.lua").foreground(tonumber(fmt(pane, "#{pane_pid}")))
+end
+
+function M.context(pane)
+    assert(alive(pane), "Originating pane is gone")
+    io.write(vim.json.encode(foreground(pane) or vim.NIL))
+end
+
 function M.pick(pane, text, x, cwd, layout)
-    local context
-    if vim.env.TMUX_AGENT_CONTAINER_PACKAGE then
-        context = dofile(base .. "lua/context.lua")(tonumber(fmt(pane, "#{pane_pid}")))
+    local context = foreground(pane)
+    local remote_root = container_root(pane)
+    if not context and remote_root then
+        local workspace = vim.fs.root(cwd, ".git")
+        if workspace and vim.uv.fs_stat(workspace .. "/.devcontainer/devcontainer.json") then
+            local file = M.resolve(text, x, cwd, { from = remote_root, to = workspace })
+            if file == workspace or file:sub(1, #workspace + 1) == workspace .. "/" then
+                context = dofile(base .. "lua/context.lua").workspace(workspace)
+            end
+        end
     end
     if context then
-        -- Resolve in the carrier, so ~/ and paths outside the workspace never select
-        -- a different host file with the same spelling.
-        local result = run({
+        -- Resolve in the selected container. Optional mapping translates host
+        -- checkout spellings; ~/ and outside-workspace paths stay container-local.
+        local command = {
             "devcontainer",
             "exec",
             "--container-id",
@@ -108,14 +145,82 @@ function M.pick(pane, text, x, cwd, layout)
             "parse",
             text,
             tostring(x),
-        })
-        local target = vim.json.decode(result)
+        }
+        if remote_root then
+            vim.list_extend(command, { context.workspace, remote_root })
+        end
+        local target = vim.json.decode(run(command))
         context.root = target.root
         M.launch(pane, target.file, target.line, target.col, context, layout)
     else
         local file, line, col = M.resolve(text, x, cwd)
         M.launch(pane, file, line, col, nil, layout)
     end
+end
+
+-- RPC remains owned by this package; callers use the public status command.
+local function remote(child, expression)
+    local runtime = fmt(child, "#{@nav_runtime}")
+    local command = { vim.v.progpath }
+    if runtime == "container" then
+        command = {
+            "devcontainer",
+            "exec",
+            "--container-id",
+            fmt(child, "#{@nav_container}"),
+            "--workspace-folder",
+            fmt(child, "#{@nav_workspace}"),
+            "nvim",
+        }
+    end
+    vim.list_extend(
+        command,
+        { "-u", "NONE", "-i", "NONE", "--server", fmt(child, "#{@nav_socket}"), "--remote-expr", expression }
+    )
+    return run(command)
+end
+
+function M.status(pane)
+    assert(alive(pane), "Pane is gone")
+    local parent = fmt(pane, "#{@nav_parent}")
+    if not alive(parent) then
+        parent = pane
+    end
+    local child = fmt(parent, "#{@nav_child}")
+    local data = {
+        parent = {
+            pane = parent,
+            active = fmt(parent, "#{pane_active}") == "1",
+            copy_mode = fmt(parent, "#{pane_in_mode}") == "1",
+            cursor = fmt(parent, "#{copy_cursor_x}:#{copy_cursor_y}:#{scroll_position}"),
+            zoomed = fmt(parent, "#{window_zoomed_flag}") == "1",
+        },
+        editor = vim.NIL,
+    }
+    if alive(child) then
+        data.editor = {
+            pane = child,
+            runtime = fmt(child, "#{@nav_runtime}"),
+            container = fmt(child, "#{@nav_container}"),
+            active = fmt(child, "#{pane_active}") == "1",
+            zoomed = fmt(child, "#{window_zoomed_flag}") == "1",
+            ready = false,
+        }
+        if fmt(child, "#{@nav_socket}") ~= "" and fmt(child, "#{@nav_editor}") == "" then
+            local ok, value = pcall(
+                remote,
+                child,
+                "json_encode([expand('%:p'),line('.'),col('.'),getcwd(),getpid(),&filetype])"
+            )
+            if ok then
+                local info = vim.json.decode(value)
+                data.editor.ready = true
+                data.editor.buffer, data.editor.line, data.editor.column = info[1], info[2], info[3]
+                data.editor.cwd, data.editor.pid, data.editor.filetype = info[4], info[5], info[6]
+            end
+        end
+    end
+    io.write(vim.json.encode(data))
 end
 
 function M.launch(pane, file, line, col, context, layout)
@@ -133,9 +238,14 @@ function M.launch(pane, file, line, col, context, layout)
         editor_root = context.root
     end
     local editor = fmt(pane, "#{@agent-editor}")
+    local nvim_config = fmt(pane, "#{@agent-nvim-config}")
     assert(not context or editor == "", "Custom editors currently support host paths only")
     local oldchild = fmt(pane, "#{@nav_child}")
     if alive(oldchild) then
+        assert(
+            nvim_config == fmt(oldchild, "#{@nav_nvim_config}"),
+            "Close the editor before changing Neovim configuration"
+        )
         assert(
             editor == "" and fmt(oldchild, "#{@nav_editor}") == "",
             "Close the custom editor before opening another reference"
@@ -154,32 +264,7 @@ function M.launch(pane, file, line, col, context, layout)
         if socket == "" then
             error("Child editor is still starting; try opening again")
         end
-        local command = runtime == "container"
-                and { "devcontainer", "exec", "--workspace-folder", workspace, "nvim" }
-            or { vim.v.progpath }
-        local container = fmt(oldchild, "#{@nav_container}")
-        if runtime == "container" and container ~= "" then
-            command = {
-                "devcontainer",
-                "exec",
-                "--container-id",
-                container,
-                "--workspace-folder",
-                workspace,
-                "nvim",
-            }
-        end
-        vim.list_extend(command, {
-            "-u",
-            "NONE",
-            "-i",
-            "NONE",
-            "--server",
-            socket,
-            "--remote-expr",
-            ("v:lua.TerminalNavOpen(%s,%d,%d)"):format(vim.fn.string(editor_file), line, col),
-        })
-        run(command)
+        remote(oldchild, ("v:lua.TerminalNavOpen(%s,%d,%d)"):format(vim.fn.string(editor_file), line, col))
         if layout == "split" then
             if fmt(oldchild, "#{window_zoomed_flag}") == "1" then
                 tmux("resize-pane", "-Z", "-t", oldchild)
@@ -209,6 +294,7 @@ function M.launch(pane, file, line, col, context, layout)
         zoom = zoom,
         runtime = runtime,
         editor = editor,
+        nvim_config = nvim_config,
         package = vim.env.TMUX_AGENT_CONTAINER_PACKAGE,
         workspace = workspace,
         container = context and context.container or nil,
@@ -234,6 +320,7 @@ function M.launch(pane, file, line, col, context, layout)
     tmux("set-option", "-p", "-t", child, "@nav_parent", pane)
     tmux("set-option", "-p", "-t", child, "@nav_runtime", runtime)
     tmux("set-option", "-p", "-t", child, "@nav_editor", editor)
+    tmux("set-option", "-p", "-t", child, "@nav_nvim_config", nvim_config)
     if workspace then
         tmux("set-option", "-p", "-t", child, "@nav_workspace", workspace)
     end
@@ -293,12 +380,13 @@ function M.restore_after(child, parent, zoom)
     if not alive(data.parent) then
         return
     end
-    tmux("set-option", "-pu", "-t", data.parent, "@nav_child")
     tmux("select-pane", "-t", data.parent)
     local zoomed = fmt(data.parent, "#{window_zoomed_flag}")
     if zoomed ~= data.zoom then
         tmux("resize-pane", "-Z", "-t", data.parent)
     end
+    -- Publish completion only after both focus and zoom are restored.
+    tmux("set-option", "-pu", "-t", data.parent, "@nav_child")
 end
 
 if arg and arg[1] then
@@ -308,6 +396,8 @@ if arg and arg[1] then
             toggle = M.toggle,
             thumb = M.thumb,
             parse = M.parse,
+            context = M.context,
+            status = M.status,
             restore = M.restore,
             restore_after = M.restore_after,
         }

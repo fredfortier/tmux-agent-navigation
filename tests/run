@@ -5,6 +5,7 @@ TMUX_AGENT_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 export TMUX_AGENT_ROOT
 unset TMUX_AGENT_CONTAINER_PACKAGE
 nvim --headless -u NONE -i NONE -l "$TMUX_AGENT_ROOT/tests/parser.lua"
+nvim --headless -u NONE -i NONE -l "$TMUX_AGENT_ROOT/tests/context.lua"
 nav_fixture=$(mktemp -d /tmp/tmux-agent-test.XXXXXXXX)
 nav_server="nav-agent-$$"
 nav_client=''

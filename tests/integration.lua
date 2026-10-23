@@ -183,6 +183,16 @@ local ok, err = pcall(function()
         if not form[3] then
             assert(actual[2] == form[2] and actual[3] == 1, vim.inspect(actual))
         end
+        if index == 1 then
+            local status = vim.system(
+                { vim.env.TMUX_AGENT_ROOT .. "/bin/agent-navigation", "status", pane },
+                { env = { TMUX = tmux("display-message", "-p", "#{socket_path}") .. ",0,0" }, text = true }
+            ):wait()
+            assert(status.code == 0, status.stderr)
+            local snapshot = vim.json.decode(status.stdout)
+            assert(snapshot.parent.pane == pane and snapshot.editor.ready)
+            assert(snapshot.editor.buffer == file and snapshot.editor.line == form[2])
+        end
         if split and index == 1 then
             -- Reuse one child while switching between fullscreen and split;
             -- opening another reference must not accumulate editor panes.

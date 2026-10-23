@@ -31,5 +31,8 @@ elif [[ -n $nav_editor ]]; then
 else
     tmux set-option -p -t "$TMUX_PANE" @nav_socket "$TMUX_NAV_SOCKET"
     # Load the user's ordinary config. -n disables swap only in this child.
-    nvim -n --listen "$TMUX_NAV_SOCKET" -c 'lua dofile(vim.env.TMUX_AGENT_ROOT .. "/lua/editor.lua")'
+    nav_config=$(jq -r '.nvim_config // empty' <<< "$TMUX_NAV_PAYLOAD")
+    nav_options=()
+    if [[ -n $nav_config ]]; then nav_options+=(-u "$nav_config"); fi
+    nvim -n "${nav_options[@]}" --listen "$TMUX_NAV_SOCKET" -c 'lua dofile(vim.env.TMUX_AGENT_ROOT .. "/lua/editor.lua")'
 fi

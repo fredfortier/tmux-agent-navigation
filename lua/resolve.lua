@@ -3,7 +3,7 @@ local M = {}
 -- All terminal text remains data; no captured text is evaluated by a shell.
 --- Return absolute file, one-based line, and byte column for a display-cell cursor.
 --- Existing literal names take priority over prose and location syntax.
-function M.resolve(text, x, cwd)
+function M.resolve(text, x, cwd, mapping)
     local candidates = {}
     local function add(first, last, ref)
         local left = vim.fn.strdisplaywidth(text:sub(1, first - 1))
@@ -108,6 +108,11 @@ function M.resolve(text, x, cwd)
         end
         if not path:match("^%a[%w+.-]*://") then
             local choices = { path:sub(1, 1) == "/" and path or (cwd .. "/" .. path) }
+            if
+                mapping and (path == mapping.from or path:sub(1, #mapping.from + 1) == mapping.from .. "/")
+            then
+                table.insert(choices, 1, mapping.to .. path:sub(#mapping.from + 1))
+            end
             if path:sub(1, 1) ~= "/" then
                 local root = vim.fs.root(cwd, ".git")
                 if root then

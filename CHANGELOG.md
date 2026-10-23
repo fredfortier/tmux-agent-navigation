@@ -3,6 +3,14 @@
 User-visible changes follow semantic versioning; see
 [contributing](CONTRIBUTING.md).
 
+## Unreleased
+
+- Add explicit checkout-to-container routing and namespace mapping for existing
+  containers.
+- Allow a dedicated host Neovim init while preserving normal container editor
+  configuration.
+- Expose read-only foreground-context inspection through the controller.
+
 ## 0.1.0
 
 - Extract the terminal review loop into an additive tmux plugin with TPM

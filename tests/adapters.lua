@@ -63,8 +63,43 @@ local ok, err = pcall(function()
     end, 25))
     assert(fmt(pane, "#{pane_active}") == "1")
     assert(fmt(pane, "#{window_zoomed_flag}") == "0")
+    -- A selected host init must override the ordinary config, without becoming
+    -- a custom-editor adapter (the built-in RPC/reuse path still applies).
+    tmux("set-option", "-gu", "@agent-editor")
+    local init = fixture .. "/preview.lua"
+    vim.fn.writefile({ "vim.g.agent_preview_config = true" }, init)
+    tmux("set-option", "-g", "@agent-nvim-config", init)
+    result = vim.system(command, { env = { TMUX = socket .. ",0,0" }, text = true }):wait()
+    assert(result.code == 0, result.stderr)
+    local editor_socket
+    assert(
+        vim.wait(5000, function()
+            child = fmt(pane, "#{@nav_child}")
+            if child == "" then
+                return false
+            end
+            editor_socket = fmt(child, "#{@nav_socket}")
+            if editor_socket == "" then
+                return false
+            end
+            local probe = vim.system({
+                "nvim",
+                "--server",
+                editor_socket,
+                "--remote-expr",
+                "json_encode(get(g:, 'agent_preview_config', v:false))",
+            }, { text = true }):wait()
+            return probe.code == 0 and vim.trim(probe.stdout) == "true"
+        end, 25),
+        "Host Neovim configuration did not load"
+    )
+    tmux("send-keys", "-t", child, "Escape", ":q", "Enter")
+    assert(vim.wait(5000, function()
+        return fmt(pane, "#{@nav_child}") == ""
+    end, 25))
 end)
 tmux("set-option", "-gu", "@agent-editor")
+tmux("set-option", "-gu", "@agent-nvim-config")
 if pane then
     tmux("kill-window", "-t", pane)
 end

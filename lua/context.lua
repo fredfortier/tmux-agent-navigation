@@ -1,5 +1,6 @@
 -- Discover a foreground `devcontainer exec` without changing its invocation.
-return function(pane_pid)
+local M = {}
+function M.foreground(pane_pid)
     local function run(args)
         local result = vim.system(args, { text = true }):wait()
         assert(result.code == 0, "Cannot inspect the foreground container")
@@ -97,3 +98,35 @@ return function(pane_pid)
     assert(actual.workspace, "The foreground carrier has no accessible workspace label")
     return { workspace = actual.workspace, container = actual.id }
 end
+
+-- Explicit checkout routing is separate from foreground process inspection.
+-- Multiple carriers are an error; never choose whichever Docker lists first.
+function M.workspace(workspace)
+    local function run(args)
+        local result = vim.system(args, { text = true }):wait()
+        assert(result.code == 0, "Cannot inspect the workspace container")
+        return vim.trim(result.stdout)
+    end
+    local ids = vim.split(
+        run({
+            "docker",
+            "ps",
+            "--quiet",
+            "--no-trunc",
+            "--filter",
+            "label=devcontainer.local_folder=" .. workspace,
+        }),
+        "\n",
+        { trimempty = true }
+    )
+    assert(#ids == 1, "Expected one running devcontainer for this checkout")
+    local template =
+        '{"id":{{json .Id}},"workspace":{{json (index .Config.Labels "devcontainer.local_folder")}},"running":{{json .State.Running}}}'
+    local actual = vim.json.decode(run({ "docker", "inspect", "--format", template, ids[1] }))
+    assert(
+        actual.running and actual.workspace and vim.uv.fs_realpath(actual.workspace) == workspace,
+        "The running container does not match this checkout"
+    )
+    return { workspace = workspace, container = actual.id }
+end
+return M

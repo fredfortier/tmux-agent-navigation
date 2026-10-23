@@ -28,29 +28,32 @@ one requires a documented compatibility decision and a changelog entry.
 - Errors are visible in tmux and return a nonzero controller exit status.
 
 The supported baseline is Linux, Bash, tmux 3.4+, Neovim 0.11+, and jq. Custom
-editors still require Neovim for the controller. The custom adapter interface is
-three argv values: absolute target path, one-based line, one-based byte column.
-Adapters must remain in the foreground until closing. Private Lua functions,
-JSON payload fields, RPC names, and `@nav_*` pane options are internal
-interfaces.
+editors still require Neovim for the controller. Optional
+`@agent-container-root` routing maps checkout paths into one existing container;
+`@agent-nvim-config` selects only the host child configuration. The custom
+adapter interface is three argv values: absolute target path, one-based line,
+one-based byte column. Adapters must remain in the foreground until closing.
+Private Lua functions, JSON payload fields, RPC names, and `@nav_*` pane options
+are internal interfaces.
 
 ## Source map
 
-| File                    | Responsibility                                                         |
-| ----------------------- | ---------------------------------------------------------------------- |
-| `agent-navigation.tmux` | Additive TPM/manual entrypoint, bindings, optional hints.              |
-| `bin/agent-navigation`  | Locate checkout; launch the isolated Neovim Lua controller.            |
-| `lua/resolve.lua`       | Cursor-aware reference parser and filesystem resolution.               |
-| `lua/navigation.lua`    | Capture scrollback, select runtime, own pane lifecycle and reuse.      |
-| `lua/editor.lua`        | Configure the child Neovim and expose its private open operation.      |
-| `bin/child-editor`      | Dispatch editor; own temporary socket cleanup and return trap.         |
-| `lua/context.lua`       | Opt-in foreground Dev Containers process detection.                    |
-| `bin/container-editor`  | Launch Neovim inside an existing container.                            |
-| `bin/thumbs-pick`       | Preserve hint origin and invoke upstream thumbs.                       |
-| `tests/parser.lua`      | Reference spelling, every cursor cell, failures, literal filenames.    |
-| `tests/integration.lua` | Real PTY key dispatch, file/cursor, layouts, reuse, return.            |
-| `tests/adapters.lua`    | Custom-editor argv, return, and setup idempotence checks.              |
-| `tests/run`             | Disposable tmux server, attached PTY, isolated editor config, cleanup. |
+| File                    | Responsibility                                                           |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `agent-navigation.tmux` | Additive TPM/manual entrypoint, bindings, optional hints.                |
+| `bin/agent-navigation`  | Locate checkout; launch the isolated Neovim Lua controller.              |
+| `lua/resolve.lua`       | Cursor-aware reference parser and filesystem resolution.                 |
+| `lua/navigation.lua`    | Capture scrollback, select runtime, own pane lifecycle and reuse.        |
+| `lua/editor.lua`        | Configure the child Neovim and expose its private open operation.        |
+| `bin/child-editor`      | Dispatch editor; own temporary socket cleanup and return trap.           |
+| `lua/context.lua`       | Opt-in foreground Dev Containers process detection.                      |
+| `bin/container-editor`  | Launch Neovim inside an existing container.                              |
+| `bin/thumbs-pick`       | Preserve hint origin and invoke upstream thumbs.                         |
+| `tests/context.lua`     | Docker selection boundary: exact workspace and absent/ambiguous targets. |
+| `tests/parser.lua`      | Reference spelling, every cursor cell, failures, literal filenames.      |
+| `tests/integration.lua` | Real PTY key dispatch, file/cursor, layouts, reuse, return.              |
+| `tests/adapters.lua`    | Custom-editor argv, return, and setup idempotence checks.                |
+| `tests/run`             | Disposable tmux server, attached PTY, isolated editor config, cleanup.   |
 
 ## Data and lifecycle
 

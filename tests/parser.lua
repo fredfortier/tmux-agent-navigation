@@ -78,6 +78,23 @@ local ok, err = pcall(function()
         assert(success, vim.inspect(case) .. "\n" .. tostring(path))
         assert(path == case[4] and line == case[5] and col == case[6], vim.inspect(case))
     end
+    local mapped, line, col = nav.resolve(
+        "/workspace/src/example.lua:2:3",
+        3,
+        "/tmp",
+        { from = "/workspace", to = fixture .. "/nested" }
+    )
+    assert(mapped == file and line == 2 and col == 3, "Explicit workspace mapping failed")
+    assert(
+        not pcall(
+            nav.resolve,
+            "/workspace-other/src/example.lua",
+            3,
+            "/tmp",
+            { from = "/workspace", to = fixture .. "/nested" }
+        ),
+        "Mapping crossed a path boundary"
+    )
     assert(not pcall(nav.resolve, "missing.lua:3", 3, fixture))
     for _, suffix in ipairs({ "#L2garbage", "#L2-Loops", "#heading", "#L2-L3tail" }) do
         assert(not pcall(nav.resolve, file .. suffix, 4, "/tmp"), "Invalid anchor accepted: " .. suffix)
