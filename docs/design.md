@@ -27,7 +27,7 @@ one requires a documented compatibility decision and a changelog entry.
   Optional thumbs setup also owns its documented upstream integration options.
 - Errors are visible in tmux and return a nonzero controller exit status.
 
-The supported baseline is Linux, Bash, tmux 3.3+, Neovim 0.11+, and jq. Custom
+The supported baseline is Linux, Bash, tmux 3.4+, Neovim 0.11+, and jq. Custom
 editors still require Neovim for the controller. The custom adapter interface is
 three argv values: absolute target path, one-based line, one-based byte column.
 Adapters must remain in the foreground until closing. Private Lua functions,

@@ -9,6 +9,10 @@ nav_fixture=$(mktemp -d /tmp/tmux-agent-test.XXXXXXXX)
 nav_server="nav-agent-$$"
 nav_client=''
 cleanup() {
+    nav_exit=$?
+    if ((nav_exit != 0)) && [[ -f $nav_fixture/pty.log ]]; then
+        tail -40 "$nav_fixture/pty.log" >&2
+    fi
     tmux -L "$nav_server" kill-server 2>/dev/null || true
     if [[ -n $nav_client ]]; then kill "$nav_client" 2>/dev/null || true; fi
     rm -rf -- "$nav_fixture"
@@ -23,12 +27,12 @@ printf 'vim.opt.shadafile = "NONE"\n' > "$XDG_CONFIG_HOME/nvim/init.lua"
 # Keep script's input open without a background sleep or user input.
 mkfifo "$nav_fixture/input"
 exec 3<> "$nav_fixture/input"
+export TMUX_AGENT_TEST_INPUT="$nav_fixture/input"
 cat > "$nav_fixture/tmux.conf" <<EOF_CONFIG
 set -g default-shell /bin/bash
 set -g default-command 'bash --noprofile --norc'
 set -g mode-keys vi
 set -g status-left '#{E:@agent-status}'
-run-shell '\"$TMUX_AGENT_ROOT/agent-navigation.tmux\"'
 EOF_CONFIG
 env -u TMUX -u TMUX_PANE TERM=xterm-256color script -q -c "tmux -L $nav_server -f $nav_fixture/tmux.conf new-session -s test -x 100 -y 35" /dev/null <&3 > "$nav_fixture/pty.log" 2>&1 &
 nav_client=$!
@@ -36,7 +40,7 @@ for ((attempt=0; attempt<100; attempt++)); do
     if [[ -n $(tmux -L "$nav_server" list-clients 2>/dev/null) ]]; then break; fi
     sleep 0.05
 done
-# Run setup synchronously too: startup run-shell may still be in flight.
+# Install synchronously after the attached client exists.
 if [[ -n ${TMUX_AGENT_TEST_THUMBS:-} ]]; then
     tmux -L "$nav_server" set-option -g @agent-thumbs-path "$TMUX_AGENT_TEST_THUMBS"
 fi

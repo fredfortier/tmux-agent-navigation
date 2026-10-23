@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 # Additive TPM/manual entrypoint. Own only these documented bindings/options.
 set -euo pipefail
+for nav_dependency in tmux nvim jq; do
+    command -v "$nav_dependency" >/dev/null || { echo "Missing dependency: $nav_dependency" >&2; exit 1; }
+done
+nav_version=$(tmux -V)
+if [[ ! $nav_version =~ ^tmux\ ([0-9]+)\.([0-9]+) ]] ||
+    ((BASH_REMATCH[1] < 3 || (BASH_REMATCH[1] == 3 && BASH_REMATCH[2] < 4))); then
+    echo 'tmux-agent-navigation requires tmux 3.4 or newer' >&2
+    exit 1
+fi
+nvim --headless -u NONE -i NONE -c 'if !has("nvim-0.11") | cquit | endif' +q
 nav_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 # POSIX single-quote escaping for tmux's run-shell, including checkout spaces.
 quote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }

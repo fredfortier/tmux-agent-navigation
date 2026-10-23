@@ -30,7 +30,7 @@ Neovim is still required as the Lua runtime with a custom editor.
 
 ## Install
 
-Requires Linux, Bash, **tmux 3.3+**, **Neovim 0.11+**, and **jq** on `PATH`.
+Requires Linux, Bash, **tmux 3.4+**, **Neovim 0.11+**, and **jq** on `PATH`.
 Linux is the supported platform; macOS is not yet verified. No npm, Python, or
 Neovim plugin manager is needed at runtime.
 

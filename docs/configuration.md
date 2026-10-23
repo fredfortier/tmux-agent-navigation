@@ -6,7 +6,7 @@ title: Configuration and editor integrations
 
 Set plugin options before loading `agent-navigation.tmux` or initializing TPM.
 Reload your tmux configuration after changing them. Runtime requirements are
-Linux, Bash, tmux 3.3+, Neovim 0.11+, and jq. Core navigation has no network
+Linux, Bash, tmux 3.4+, Neovim 0.11+, and jq. Core navigation has no network
 calls.
 
 ## Bindings and status

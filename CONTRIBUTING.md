@@ -6,7 +6,7 @@ changing resolution or pane lifecycle.
 
 ## Develop
 
-Clone the repo and install Linux, Bash, tmux 3.3+, Neovim 0.11+, jq, ShellCheck,
+Clone the repo and install Linux, Bash, tmux 3.4+, Neovim 0.11+, jq, ShellCheck,
 and StyLua. `script` from util-linux provides the attached test PTY.
 
 ```sh

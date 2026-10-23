@@ -14,7 +14,13 @@ local function fmt(pane, format)
     return tmux("display-message", "-p", "-t", pane, format)
 end
 assert(tmux("list-clients") ~= "", "Attach a PTY client first")
-local client = tmux("list-clients", "-F", "#{client_name}")
+-- Feed the attached client's PTY rather than send-keys -K (tmux 3.4+).
+-- This exercises real terminal key dispatch on the supported tmux minimum too.
+local function client_keys(key)
+    local input = assert(io.open(assert(vim.env.TMUX_AGENT_TEST_INPUT), "w"))
+    input:write(key == "C-b" and string.char(2) or key)
+    input:close()
+end
 local thumbs = arg[2] == "thumbs"
 local split = arg[2] == "split"
 local fixture = vim.fn.tempname()
@@ -81,8 +87,8 @@ local ok, err = pcall(function()
         if thumbs then
             local window = fmt(pane, "#{window_id}")
             local function pick(key)
-                tmux("send-keys", "-K", "-c", client, "C-b")
-                tmux("send-keys", "-K", "-c", client, "F")
+                client_keys("C-b")
+                client_keys("F")
                 assert(
                     vim.wait(5000, function()
                         local overlay = fmt(window, "#{pane_id}")
@@ -111,11 +117,11 @@ local ok, err = pcall(function()
             assert(fmt(pane, "#{@nav_child}") == "", "Lowercase opened an editor")
             pick("A")
         else
-            tmux("send-keys", "-K", "-c", client, "g")
+            client_keys("g")
             assert(vim.wait(1000, function()
                 return tmux("list-clients", "-F", "#{client_key_table}") == "agent-navigation-g"
             end, 25))
-            tmux("send-keys", "-K", "-c", client, split and "n" or "f")
+            client_keys(split and "n" or "f")
         end
         local child, socket
         assert(
@@ -127,7 +133,7 @@ local ok, err = pcall(function()
                 socket = fmt(child, "#{@nav_socket}")
                 return socket ~= "" and vim.uv.fs_stat(socket) ~= nil
             end, 50),
-            "gf did not open case " .. index
+            (thumbs and "hint" or (split and "gn" or "gf")) .. " did not open case " .. index
         )
         local actual
         assert(
@@ -159,11 +165,11 @@ local ok, err = pcall(function()
                 tmux("send-keys", "-t", pane, "-X", "history-top")
                 tmux("send-keys", "-t", pane, "-X", "start-of-line")
                 tmux("send-keys", "-t", pane, "-X", "cursor-right")
-                tmux("send-keys", "-K", "-c", client, "g")
+                client_keys("g")
                 assert(vim.wait(1000, function()
                     return tmux("list-clients", "-F", "#{client_key_table}") == "agent-navigation-g"
                 end, 25))
-                tmux("send-keys", "-K", "-c", client, key)
+                client_keys(key)
                 assert(
                     vim.wait(3000, function()
                         return fmt(child, "#{pane_active}") == "1"
@@ -191,8 +197,8 @@ local ok, err = pcall(function()
             assert(fmt(child, "#{E:status-left}"):find("prefix e zoom", 1, true))
             if index == 1 then
                 for _, expected in ipairs({ "1", "0" }) do
-                    tmux("send-keys", "-K", "-c", client, "C-b")
-                    tmux("send-keys", "-K", "-c", client, "e")
+                    client_keys("C-b")
+                    client_keys("e")
                     assert(vim.wait(3000, function()
                         return fmt(child, "#{window_zoomed_flag}") == expected
                             and fmt(expected == "1" and child or pane, "#{pane_active}") == "1"
@@ -226,6 +232,13 @@ local ok, err = pcall(function()
         tmux("kill-window", "-t", pane)
     end
 end)
+if not ok then
+    for message in tmux("show-messages"):gmatch("[^\n]+") do
+        if message:find("tmux-agent-navigation:", 1, true) then
+            io.stderr:write(message .. "\n")
+        end
+    end
+end
 vim.fn.delete(fixture, "rf")
 assert(ok, err)
 print(

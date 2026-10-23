@@ -31,6 +31,17 @@ function M.open(pane, layout)
     local x = tonumber(fmt(pane, "#{copy_cursor_x}")) or 0
     -- Reconstruct soft-wrapped references around the cursor, without moving it.
     local y = tonumber(fmt(pane, "#{copy_cursor_y}")) or 0
+    -- Older tmux includes the position header in copy_cursor_line, covering
+    -- real text on row zero. Capture both header states and restore the user's
+    -- state immediately; neither toggle moves the cursor or selection.
+    local cursor_lines = { text }
+    if y == 0 then
+        tmux("send-keys", "-t", pane, "-X", "toggle-position")
+        local ok, alternate = pcall(fmt, pane, "#{copy_cursor_line}")
+        tmux("send-keys", "-t", pane, "-X", "toggle-position")
+        assert(ok, alternate)
+        cursor_lines[#cursor_lines + 1] = alternate
+    end
     local scroll = tonumber(fmt(pane, "#{scroll_position}")) or 0
     local history = tonumber(fmt(pane, "#{history_size}")) or 0
     local width = tonumber(fmt(pane, "#{pane_width}")) or 80
@@ -45,10 +56,13 @@ function M.open(pane, layout)
         if row >= physical and row < physical + rows then
             -- After pane resizing tmux's scroll offsets can lag its cursor
             -- line. Never replace that authoritative line with unrelated text.
-            local current = text:gsub("%s+$", "")
-            if current ~= "" and logical:find(current, 1, true) then
-                text = logical
-                x = x + (row - physical) * width
+            for _, cursor_line in ipairs(cursor_lines) do
+                local current = cursor_line:gsub("%s+$", "")
+                if current ~= "" and logical:find(current, 1, true) then
+                    text = logical
+                    x = x + (row - physical) * width
+                    break
+                end
             end
             break
         end

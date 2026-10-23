@@ -42,6 +42,23 @@ experimental: no standalone live-container acceptance is claimed. macOS, GUI
 editors, and every possible user Neovim configuration are not covered by Linux
 CI.
 
+## Standalone compatibility checks
+
+Local acceptance passed with tmux 3.4 and Neovim 0.11.0, including 1,575 parser
+cursor cases, six `gf` cases, six `gn` cases, and custom-editor arguments and
+return behavior. A second run with tmux 3.7c and Neovim 0.12.6 covers the
+optional seven thumbs cases as well. Bash, Lua, Markdown, and workflow syntax
+are checked locally. GitHub-hosted execution and Pages deployment require
+repository access; these local checks do not claim either has run.
+
+The minimum-version probe exposed an older tmux behavior: its cursor-line format
+includes the copy-mode position header, overwriting part of a long reference.
+The controller snapshots both header states, immediately restores the original
+setting, and uses the matching unoccluded line to validate wrapped
+reconstruction. The existing long-link split case failed before this fix and
+passed afterward. The plugin rejects tmux older than 3.4 before installing
+bindings.
+
 ## Discoverability decision
 
 The name **tmux-agent-navigation** puts the platform and task in the repository
