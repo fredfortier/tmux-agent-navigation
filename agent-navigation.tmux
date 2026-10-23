@@ -29,10 +29,10 @@ nav_thumbs=$(tmux show-option -gqv @agent-thumbs-path)
 if [[ -n $nav_thumbs ]]; then
     [[ -f $nav_thumbs/tmux-thumbs.tmux ]] || { echo 'Invalid @agent-thumbs-path' >&2; exit 1; }
     tmux set-option -g @thumbs-key F
-    tmux set-option -g @thumbs-upcase-command "$nav_command thumb \"\$THUMB\""
-    # Expanded by tmux-thumbs when a hint is picked, not during setup.
-    # shellcheck disable=SC2016
-    tmux set-option -g @thumbs-command 'tmux set-buffer -- "$THUMB"; tmux display-message -l "Copied hint"'
+    tmux set-option -g @thumbs-upcase-command "$nav_command thumb \"{}\""
+    # Upstream replaces {} safely after reading the option. A literal $THUMB
+    # is escaped by older tmux versions when the option crosses its CLI.
+    tmux set-option -g @thumbs-command 'tmux set-buffer -- "{}"; tmux display-message -l "Copied hint"'
     tmux set-option -g @thumbs-regexp-0 '[.\w@~-]+[ \t]+\([.\w@~/-]+(?::[0-9]+(?::[0-9]+)?|#L[0-9]+(?:-L?[0-9]+)?)?\)'
     tmux set-option -g @thumbs-regexp-1 '(?:(?:~?/|[.\w@~-]+/)[.\w@~/-]+|[.\w@~-]+\.[\w.-]+)(?::[0-9]+(?::[0-9]+)?|#L[0-9]+(?:-L[0-9]+)?)?'
     /bin/bash "$nav_thumbs/tmux-thumbs.tmux"
