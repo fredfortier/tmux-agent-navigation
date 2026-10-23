@@ -58,7 +58,7 @@ adapter /absolute/file line byte-column
 ```
 
 For Vim, save the supplied
-[example adapter](https://github.com/fredfortier/tmux-agent-navigation/blob/main/examples/vim-editor)
+[example adapter](https://github.com/fredfortier/tmux-agent-navigation/blob/master/examples/vim-editor)
 as an executable, then configure its actual path:
 
 ```tmux

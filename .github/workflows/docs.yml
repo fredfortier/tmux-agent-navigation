@@ -1,7 +1,7 @@
 name: Documentation
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths: ['docs/**', '.github/workflows/docs.yml']
   pull_request:
     paths: ['docs/**', '.github/workflows/docs.yml']
@@ -25,7 +25,7 @@ jobs:
         with:
           path: ./_site
   deploy:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 10

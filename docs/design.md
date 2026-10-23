@@ -77,7 +77,7 @@ worktrees. PTY tests drive actual client key bindings and inspect the real
 editor through RPC. Custom adapter tests inspect separate argv values and return
 behavior. CI runs the supported minimum Neovim line and stable Neovim on Linux,
 plus Bash and Lua lint. The docs build on pull requests; deployment is
-main-only.
+master-only.
 
 Optional thumbs acceptance requires a built upstream checkout. The container
 adapter requires a real already-running container and remains experimental until

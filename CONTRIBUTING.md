@@ -26,8 +26,8 @@ TMUX_AGENT_TEST_THUMBS=/absolute/path/to/tmux-thumbs make test-thumbs
 
 Use `stylua lua tests` for formatting. Markdown uses mdformat 1.0.0 with GFM and
 frontmatter support; CI checks the exact tool versions. The Pages workflow
-builds `docs/` with GitHub's Jekyll builder on pull requests and publishes main
-only.
+builds `docs/` with GitHub's Jekyll builder on pull requests and publishes
+master only.
 
 ## Propose a change
 
