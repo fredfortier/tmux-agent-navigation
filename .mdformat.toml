@@ -1,0 +1,4 @@
+# Keep the standalone formatter independent of any parent checkout's settings.
+wrap = 80
+number = true
+extensions = ["gfm", "frontmatter"]
