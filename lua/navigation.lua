@@ -125,9 +125,14 @@ function M.pick(pane, text, x, cwd, layout)
     if not context and remote_root then
         local workspace = vim.fs.root(cwd, ".git")
         if workspace and vim.uv.fs_stat(workspace .. "/.devcontainer/devcontainer.json") then
-            local file = M.resolve(text, x, cwd, { from = remote_root, to = workspace })
+            local file, line, col = M.resolve(text, x, cwd, { from = remote_root, to = workspace })
             if file == workspace or file:sub(1, #workspace + 1) == workspace .. "/" then
                 context = dofile(base .. "lua/context.lua").workspace(workspace)
+                context.root = remote_root
+                -- Keep the host's resolved literal target (including ~/ and
+                -- quoted names); do not reinterpret it in the container's home.
+                M.launch(pane, remote_root .. file:sub(#workspace + 1), line, col, context, layout)
+                return
             end
         end
     end

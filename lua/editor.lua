@@ -3,7 +3,12 @@ local data = vim.json.decode(vim.env.TMUX_NAV_PAYLOAD)
 vim.g.terminal_navigation = data
 vim.o.swapfile = false
 function _G.TerminalNavOpen(file, requested_line, col)
-    local is_directory = vim.fn.isdirectory(file) == 1
+    local stat = vim.uv.fs_stat(file)
+    assert(
+        stat and (stat.type == "file" or stat.type == "directory"),
+        "Target no longer exists in this runtime"
+    )
+    local is_directory = stat.type == "directory"
     local directory = is_directory and file or vim.fs.dirname(file)
     local root = vim.fs.root(directory, ".git") or directory
     vim.cmd.cd(root)

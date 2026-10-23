@@ -1,0 +1,15 @@
+-- Mapping must not create a new buffer when its target vanished or is not mounted.
+local fixture = vim.fn.tempname()
+vim.fn.mkdir(fixture, "p")
+local file = fixture .. "/existing.txt"
+vim.fn.writefile({ "one", "two" }, file)
+vim.env.TMUX_NAV_PAYLOAD = vim.json.encode({ file = file, line = 2, col = 1 })
+local ok, err = pcall(function()
+    dofile(assert(vim.env.TMUX_AGENT_ROOT) .. "/lua/editor.lua")
+    assert(vim.api.nvim_buf_get_name(0) == file)
+    assert(not pcall(TerminalNavOpen, fixture .. "/absent.txt", 1, 1))
+    assert(vim.api.nvim_buf_get_name(0) == file, "Missing target replaced the editor buffer")
+end)
+vim.fn.delete(fixture, "rf")
+assert(ok, err)
+print("editor target: missing mapped targets cannot create buffers")

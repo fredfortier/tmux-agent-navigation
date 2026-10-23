@@ -6,6 +6,7 @@ export TMUX_AGENT_ROOT
 unset TMUX_AGENT_CONTAINER_PACKAGE
 nvim --headless -u NONE -i NONE -l "$TMUX_AGENT_ROOT/tests/parser.lua"
 nvim --headless -u NONE -i NONE -l "$TMUX_AGENT_ROOT/tests/context.lua"
+nvim --headless -u NONE -i NONE -l "$TMUX_AGENT_ROOT/tests/editor.lua"
 nav_fixture=$(mktemp -d /tmp/tmux-agent-test.XXXXXXXX)
 nav_server="nav-agent-$$"
 nav_client=''

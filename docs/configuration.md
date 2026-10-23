@@ -136,7 +136,7 @@ running container. Exactly one container must carry that checkout's
 `devcontainer.local_folder` label; absent or ambiguous targets fail. Host
 checkout paths translate to the configured container root. Container-root paths
 shown in host output translate back to the checkout only to identify the
-project; the selected file is then resolved again inside the container. Paths
+project; the mapped target must also exist inside the container. Paths
 outside that checkout still use the host editor. Foreground `devcontainer exec`
 detection takes precedence. Relative container references use the configured
 workspace root.
