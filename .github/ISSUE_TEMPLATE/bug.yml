@@ -1,0 +1,23 @@
+name: Bug report
+description: Report a reproducible navigation problem.
+body:
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Minimal tmux config, reference text, pane cwd, and exact keys. Remove private paths and secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Environment
+      description: OS, tmux and Neovim versions, installation method, editor adapter, and whether minimal Neovim config reproduces it.
+    validations:
+      required: true

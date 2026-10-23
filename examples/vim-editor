@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Adapter contract: file, one-based line, one-based byte column; stay foreground.
+set -euo pipefail
+exec vim "+call cursor($2,$3)" -- "$1"

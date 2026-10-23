@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export TMUX_NAV_ORIGIN
+TMUX_NAV_ORIGIN=$(tmux display-message -p '#{pane_id}')
+nav_thumbs=$(tmux show-option -gqv @agent-thumbs-path)
+exec /bin/bash "$nav_thumbs/tmux-thumbs.sh"

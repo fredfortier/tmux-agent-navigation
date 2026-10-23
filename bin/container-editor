@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Run inside an already-running container. No lifecycle or mounts are managed.
+set -euo pipefail
+TMUX_AGENT_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+export TMUX_AGENT_ROOT
+nav_directory=$(dirname -- "$TMUX_NAV_SOCKET")
+mkdir -m 700 -- "$nav_directory"
+trap 'rm -rf -- "$nav_directory"' EXIT
+nvim -n --listen "$TMUX_NAV_SOCKET" -c 'lua dofile(vim.env.TMUX_AGENT_ROOT .. "/lua/editor.lua")'

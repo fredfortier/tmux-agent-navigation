@@ -1,0 +1,17 @@
+title: tmux-agent-navigation
+description: Open AI agent file references in your text editor, then return to the same tmux conversation.
+url: https://fredfortier.github.io
+baseurl: /tmux-agent-navigation
+theme: jekyll-theme-minimal
+show_downloads: false
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+exclude:
+  - Gemfile
+  - Gemfile.lock

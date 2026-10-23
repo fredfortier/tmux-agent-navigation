@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Own a disposable server and attached PTY. Never use the developer's server.
+set -euo pipefail
+TMUX_AGENT_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+export TMUX_AGENT_ROOT
+unset TMUX_AGENT_CONTAINER_PACKAGE
+nvim --headless -u NONE -i NONE -l "$TMUX_AGENT_ROOT/tests/parser.lua"
+nav_fixture=$(mktemp -d /tmp/tmux-agent-test.XXXXXXXX)
+nav_server="nav-agent-$$"
+nav_client=''
+cleanup() {
+    tmux -L "$nav_server" kill-server 2>/dev/null || true
+    if [[ -n $nav_client ]]; then kill "$nav_client" 2>/dev/null || true; fi
+    rm -rf -- "$nav_fixture"
+}
+trap cleanup EXIT
+# Isolate editor config without replacing HOME or the user's installed tools.
+export XDG_CONFIG_HOME="$nav_fixture/config"
+export XDG_DATA_HOME="$nav_fixture/data"
+export XDG_STATE_HOME="$nav_fixture/state"
+mkdir -p "$XDG_CONFIG_HOME/nvim"
+printf 'vim.opt.shadafile = "NONE"\n' > "$XDG_CONFIG_HOME/nvim/init.lua"
+# Keep script's input open without a background sleep or user input.
+mkfifo "$nav_fixture/input"
+exec 3<> "$nav_fixture/input"
+cat > "$nav_fixture/tmux.conf" <<EOF_CONFIG
+set -g default-shell /bin/bash
+set -g default-command 'bash --noprofile --norc'
+set -g mode-keys vi
+set -g status-left '#{E:@agent-status}'
+run-shell '\"$TMUX_AGENT_ROOT/agent-navigation.tmux\"'
+EOF_CONFIG
+env -u TMUX -u TMUX_PANE TERM=xterm-256color script -q -c "tmux -L $nav_server -f $nav_fixture/tmux.conf new-session -s test -x 100 -y 35" /dev/null <&3 > "$nav_fixture/pty.log" 2>&1 &
+nav_client=$!
+for ((attempt=0; attempt<100; attempt++)); do
+    if [[ -n $(tmux -L "$nav_server" list-clients 2>/dev/null) ]]; then break; fi
+    sleep 0.05
+done
+# Run setup synchronously too: startup run-shell may still be in flight.
+if [[ -n ${TMUX_AGENT_TEST_THUMBS:-} ]]; then
+    tmux -L "$nav_server" set-option -g @agent-thumbs-path "$TMUX_AGENT_TEST_THUMBS"
+fi
+TMUX="$(tmux -L "$nav_server" display-message -p '#{socket_path}'),0,0" "$TMUX_AGENT_ROOT/agent-navigation.tmux"
+nvim --headless -u NONE -i NONE -l "$TMUX_AGENT_ROOT/tests/integration.lua" "$nav_server"
+nvim --headless -u NONE -i NONE -l "$TMUX_AGENT_ROOT/tests/integration.lua" "$nav_server" split
+if [[ ${1:-} == thumbs ]]; then
+    nvim --headless -u NONE -i NONE -l "$TMUX_AGENT_ROOT/tests/integration.lua" "$nav_server" thumbs
+fi
+nvim --headless -u NONE -i NONE -l "$TMUX_AGENT_ROOT/tests/adapters.lua" "$nav_server"

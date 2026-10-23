@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Resolve the checkout rather than assuming an XDG location or PATH entry.
+set -euo pipefail
+TMUX_AGENT_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+export TMUX_AGENT_ROOT
+exec nvim --headless -u NONE -i NONE -l "$TMUX_AGENT_ROOT/lua/navigation.lua" "$@"

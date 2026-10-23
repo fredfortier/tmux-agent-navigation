@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# The payload crosses the tmux exec boundary as one argv value, never shell code.
+set -euo pipefail
+TMUX_AGENT_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+export TMUX_AGENT_ROOT
+export TMUX_NAV_PAYLOAD="$1"
+nav_directory=$(mktemp -d /tmp/tmux-agent-navigation.XXXXXXXX)
+export TMUX_NAV_SOCKET="$nav_directory/nvim.sock"
+restore_parent() {
+    "$TMUX_AGENT_ROOT/bin/agent-navigation" restore "$TMUX_NAV_PAYLOAD" || true
+    rm -rf -- "$nav_directory"
+}
+trap restore_parent EXIT
+nav_runtime=$(jq -er .runtime <<< "$TMUX_NAV_PAYLOAD")
+nav_editor=$(jq -r '.editor // empty' <<< "$TMUX_NAV_PAYLOAD")
+if [[ $nav_runtime == container ]]; then
+    [[ -z $nav_editor ]] || { echo 'Custom editors currently support host paths only' >&2; exit 1; }
+    nav_workspace=$(jq -er .workspace <<< "$TMUX_NAV_PAYLOAD")
+    nav_container=$(jq -er .container <<< "$TMUX_NAV_PAYLOAD")
+    nav_package=$(jq -er .package <<< "$TMUX_NAV_PAYLOAD")
+    tmux set-option -p -t "$TMUX_PANE" @nav_socket "$TMUX_NAV_SOCKET"
+    devcontainer exec --workspace-folder "$nav_workspace" --container-id "$nav_container" \
+        --remote-env "TMUX_NAV_PAYLOAD=$TMUX_NAV_PAYLOAD" \
+        --remote-env "TMUX_NAV_SOCKET=$TMUX_NAV_SOCKET" \
+        /bin/bash "$nav_package/bin/container-editor"
+elif [[ -n $nav_editor ]]; then
+    nav_file=$(jq -er .file <<< "$TMUX_NAV_PAYLOAD")
+    nav_line=$(jq -er .line <<< "$TMUX_NAV_PAYLOAD")
+    nav_column=$(jq -er .col <<< "$TMUX_NAV_PAYLOAD")
+    "$nav_editor" "$nav_file" "$nav_line" "$nav_column"
+else
+    tmux set-option -p -t "$TMUX_PANE" @nav_socket "$TMUX_NAV_SOCKET"
+    # Load the user's ordinary config. -n disables swap only in this child.
+    nvim -n --listen "$TMUX_NAV_SOCKET" -c 'lua dofile(vim.env.TMUX_AGENT_ROOT .. "/lua/editor.lua")'
+fi

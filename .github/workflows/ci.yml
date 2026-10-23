@@ -1,0 +1,56 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim: [v0.11.0, stable]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7 # v1
+        with:
+          neovim: true
+          version: ${{ matrix.neovim }}
+      - run: sudo apt-get update && sudo apt-get install -y tmux jq shellcheck
+      - name: Check out optional hint integration
+        if: matrix.neovim == 'stable'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: fcsonline/tmux-thumbs
+          ref: ae91d5f7c0d989933e86409833c46a1eca521b6a
+          path: .test-deps/tmux-thumbs
+      - name: Build and test hints
+        if: matrix.neovim == 'stable'
+        run: |
+          cargo build --locked --release --manifest-path .test-deps/tmux-thumbs/Cargo.toml
+          TMUX_AGENT_TEST_THUMBS="$GITHUB_WORKSPACE/.test-deps/tmux-thumbs" make test-thumbs
+      - run: make test
+        if: matrix.neovim != 'stable'
+      - uses: JohnnyMorganz/stylua-action@479972f01e665acfcba96ada452c36608bdbbb5e # v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: v2.5.2
+          args: --check lua tests
+      - run: shellcheck agent-navigation.tmux bin/* tests/run examples/*
+  markdown:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check Markdown formatting
+        run: |
+          python3 -m venv /tmp/markdown-check
+          /tmp/markdown-check/bin/pip install mdformat==1.0.0 mdformat-gfm==1.0.0 mdformat-frontmatter==2.1.2
+          git ls-files -z -- "*.md" | xargs -0 /tmp/markdown-check/bin/mdformat --check
