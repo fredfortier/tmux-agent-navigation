@@ -61,15 +61,42 @@ local ok, err = pcall(function()
             commands[#commands + 1] = "printf 'older output\\n%.0s' {1..60}"
             commands[#commands + 1] = "printf 'LIVE_BOTTOM\\n'"
         end
-        commands[#commands + 1] = "exec bash -l"
+        commands[#commands + 1] = "exec bash --noprofile --norc"
         vim.fn.writefile(commands, script)
-        local pane = tmux("new-window", "-P", "-F", "#{pane_id}", "-c", fixture, "bash", "-l", script)
-        assert(vim.wait(3000, function()
-            return tmux("capture-pane", "-p", "-S", "-", "-t", pane):find(form[1]:sub(1, 15), 1, true) ~= nil
-        end, 25))
+        local pane = tmux(
+            "new-window",
+            "-P",
+            "-F",
+            "#{pane_id}",
+            "-c",
+            fixture,
+            "bash",
+            "--noprofile",
+            "--norc",
+            script
+        )
+        assert(
+            vim.wait(10000, function()
+                return tmux("capture-pane", "-p", "-S", "-", "-t", pane):find(form[1]:sub(1, 15), 1, true)
+                    ~= nil
+            end, 25),
+            "Fixture did not render case " .. index
+        )
         local sibling, sibling_geometry
         if split and index == 2 then
-            sibling = tmux("split-window", "-h", "-d", "-t", pane, "-P", "-F", "#{pane_id}", "bash", "-l")
+            sibling = tmux(
+                "split-window",
+                "-h",
+                "-d",
+                "-t",
+                pane,
+                "-P",
+                "-F",
+                "#{pane_id}",
+                "bash",
+                "--noprofile",
+                "--norc"
+            )
             sibling_geometry = fmt(sibling, "#{pane_left}:#{pane_width}:#{pane_height}")
             tmux("resize-pane", "-Z", "-t", pane)
         end
