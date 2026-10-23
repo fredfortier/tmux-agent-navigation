@@ -48,8 +48,10 @@ Local acceptance passed with tmux 3.4 and Neovim 0.11.0, including 1,575 parser
 cursor cases, six `gf` cases, six `gn` cases, and custom-editor arguments and
 return behavior. A second run with tmux 3.7c and Neovim 0.12.6 covers the
 optional seven thumbs cases as well. Bash, Lua, Markdown, and workflow syntax
-are checked locally. GitHub-hosted execution and Pages deployment require
-repository access; these local checks do not claim either has run.
+are checked locally. GitHub-hosted checks and documentation deployments are
+recorded in
+[GitHub Actions](https://github.com/fredfortier/tmux-agent-navigation/actions).
+Those records identify the exact commit and are separate from local acceptance.
 
 The minimum-version probe exposed an older tmux behavior: its cursor-line format
 includes the copy-mode position header, overwriting part of a long reference.
